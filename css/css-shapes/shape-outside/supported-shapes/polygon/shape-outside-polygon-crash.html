@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<link rel="match" href="../../../../reference/ref-filled-green-200px-square.html">
+<link rel="help" href="https://crbug.com/963580" />
+<meta name="assert" content="This test passes if the renderer does not crash."/>
+<p>Test passes if there is a filled green square and <strong>no red</strong>.</p>
+<div style="float:left; width:200px; height:200px; background: green;"></div>
+<span style="color: white;">x</span>
+<div style="width:200px; height:200px;">
+  <div id="target" style="float:left; width:100px; height:100px; shape-outside:polygon(10px 10px, 20px 20px);"></div>
+  <span style="color: white;">y</span>
+</div>
+<div style="float:left; width:200px; height:200px;"></div>
+<script>
+document.body.offsetTop;
+target.style.shapeOutside = "none";
+document.body.offsetTop;
+</script>
+
