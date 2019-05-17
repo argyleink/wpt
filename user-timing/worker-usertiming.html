@@ -1,0 +1,21 @@
+<!DOCTYPE HTML>
+<meta charset=utf-8>
+<title>User Timing L3: test with worker</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script>
+  async_test(function (t) {
+    var worker = new Worker("resources/performance-measure-worker.js");
+    worker.postMessage({ name:"name", start:"navigationStart", end:"navigationStart" });
+    worker.onmessage = this.step_func_done(function(event) {
+      worker.terminate();
+      assert_unreached("Should throw an exception instead.");
+    });
+    worker.onerror = this.step_func_done(function(event) {
+      assert_equals(event.message,
+          "Uncaught TypeError: Failed to execute 'measure' on 'Performance': When converting a mark name ('navigationStart') to a timestamp given a name that is a read only attribute in the PerformanceTiming interface, the global object has to be a Window object.");
+      worker.terminate();
+      t.done();
+    });
+  }, "When converting a mark to a timestamp, if the global object is not a Window object, throw a TypeError.");
+</script>
