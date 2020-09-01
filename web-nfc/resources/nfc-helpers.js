@@ -18,6 +18,8 @@ let loadChromiumResources = Promise.resolve().then(() => {
   [
     '/gen/layout_test_data/mojo/public/js/mojo_bindings.js',
     '/gen/services/device/public/mojom/nfc.mojom.js',
+    '/resources/testdriver.js',
+    '/resources/testdriver-vendor.js',
     '/resources/chromium/nfc-mock.js',
   ].forEach(path => {
     let script = document.createElement('script');
@@ -64,6 +66,7 @@ const test_buffer_data = new ArrayBuffer(test_text_byte_array.length);
 const test_buffer_view = new Uint8Array(test_buffer_data);
 test_buffer_view.set(test_text_byte_array);
 const fake_tag_serial_number = 'c0:45:00:02';
+const test_record_id = '/test_path/test_id';
 
 const NFCHWStatus = {};
 // OS-level NFC setting is ON
@@ -73,6 +76,33 @@ NFCHWStatus.NOT_SUPPORTED = NFCHWStatus.ENABLED + 1;
 // OS-level NFC setting OFF
 NFCHWStatus.DISABLED = NFCHWStatus.NOT_SUPPORTED + 1;
 
+function encodeTextToArrayBuffer(string, encoding) {
+  // Only support 'utf-8', 'utf-16', 'utf-16be', and 'utf-16le'.
+  assert_true(
+      encoding === 'utf-8' || encoding === 'utf-16' ||
+      encoding === 'utf-16be' || encoding === 'utf-16le');
+
+  if (encoding === 'utf-8') {
+    return new TextEncoder().encode(string).buffer;
+  }
+
+  if (encoding === 'utf-16') {
+    let uint16array = new Uint16Array(string.length);
+    for (let i = 0; i < string.length; i++) {
+      uint16array[i] = string.codePointAt(i);
+    }
+    return uint16array.buffer;
+  }
+
+  const littleEndian = encoding === 'utf-16le';
+  const buffer = new ArrayBuffer(string.length * 2);
+  const view = new DataView(buffer);
+  for (let i = 0; i < string.length; i++) {
+    view.setUint16(i * 2, string.codePointAt(i), littleEndian);
+  }
+  return buffer;
+}
+
 function createMessage(records) {
   if (records !== undefined) {
     let message = {};
@@ -81,10 +111,12 @@ function createMessage(records) {
   }
 }
 
-function createRecord(recordType, data, mediaType, encoding, lang) {
+function createRecord(recordType, data, id, mediaType, encoding, lang) {
   let record = {};
   if (recordType !== undefined)
     record.recordType = recordType;
+  if (id !== undefined)
+    record.id = id;
   if (mediaType !== undefined)
     record.mediaType = mediaType;
   if (encoding !== undefined)
@@ -97,36 +129,37 @@ function createRecord(recordType, data, mediaType, encoding, lang) {
 }
 
 function createTextRecord(data, encoding, lang) {
-  return createRecord('text', data, undefined, encoding, lang);
+  return createRecord('text', data, test_record_id, undefined, encoding, lang);
 }
 
 function createMimeRecordFromJson(json) {
   return createRecord(
       'mime', new TextEncoder('utf-8').encode(JSON.stringify(json)),
-      'application/json');
+      test_record_id, 'application/json');
 }
 
 function createMimeRecord(buffer) {
-  return createRecord('mime', buffer, 'application/octet-stream');
+  return createRecord(
+      'mime', buffer, test_record_id, 'application/octet-stream');
 }
 
 function createUnknownRecord(buffer) {
-  return createRecord('unknown', buffer);
+  return createRecord('unknown', buffer, test_record_id);
 }
 
 function createUrlRecord(url, isAbsUrl) {
   if (isAbsUrl) {
-    return createRecord('absolute-url', url);
+    return createRecord('absolute-url', url, test_record_id);
   }
-  return createRecord('url', url);
+  return createRecord('url', url, test_record_id);
 }
 
-function createNDEFPushOptions(target, ignoreRead) {
-  return {target, ignoreRead};
+function createNDEFWriteOptions(ignoreRead) {
+  return {ignoreRead};
 }
 
 // Compares NDEFMessageSource that was provided to the API
-// (e.g. NDEFWriter.push), and NDEFMessage that was received by the
+// (e.g. NDEFWriter.write), and NDEFMessage that was received by the
 // mock NFC service.
 function assertNDEFMessagesEqual(providedMessage, receivedMessage) {
   // If simple data type is passed, e.g. String or ArrayBuffer or
@@ -135,9 +168,11 @@ function assertNDEFMessagesEqual(providedMessage, receivedMessage) {
   let provided = providedMessage;
   if (providedMessage instanceof ArrayBuffer ||
       ArrayBuffer.isView(providedMessage))
-    provided = createMessage([createMimeRecord(providedMessage)]);
+    provided = createMessage([createRecord(
+        'mime', providedMessage, undefined /* id */,
+        'application/octet-stream')]);
   else if (typeof providedMessage === 'string')
-    provided = createMessage([createTextRecord(providedMessage)]);
+    provided = createMessage([createRecord('text', providedMessage)]);
 
   assert_equals(provided.records.length, receivedMessage.data.length,
       'NDEFMessages must have same number of NDEFRecords');
@@ -151,9 +186,6 @@ function assertNDEFMessagesEqual(providedMessage, receivedMessage) {
 // NDEFWriter.onreading() EventHandler and another that is provided to mock NFC
 // service.
 function assertWebNDEFMessagesEqual(message, expectedMessage) {
-  if (expectedMessage.url)
-    assert_equals(message.url, expectedMessage.url);
-
   assert_equals(message.records.length, expectedMessage.records.length);
 
   for(let i in message.records) {
@@ -161,14 +193,16 @@ function assertWebNDEFMessagesEqual(message, expectedMessage) {
     let expectedRecord = expectedMessage.records[i];
     assert_equals(record.recordType, expectedRecord.recordType);
     assert_equals(record.mediaType, expectedRecord.mediaType);
-
+    assert_equals(record.id, expectedRecord.id);
+    assert_equals(record.encoding, expectedRecord.encoding);
+    assert_equals(record.lang, expectedRecord.lang);
     // Compares record data
     assert_array_equals(new Uint8Array(record.data),
           new Uint8Array(expectedRecord.data));
   }
 }
 
-function testNDEFScanOptions(message, scanOptions, unmatchedScanOptions, desc) {
+function testMultiScanOptions(message, scanOptions, unmatchedScanOptions, desc) {
   nfc_test(async (t, mockNFC) => {
     const reader1 = new NDEFReader();
     const reader2 = new NDEFReader();
@@ -192,8 +226,7 @@ function testNDEFScanOptions(message, scanOptions, unmatchedScanOptions, desc) {
   }, desc);
 }
 
-function testReadingMultiMessages(
-    message, scanOptions, unmatchedMessage, desc) {
+function testMultiMessages(message, scanOptions, unmatchedMessage, desc) {
   nfc_test(async (t, mockNFC) => {
     const reader = new NDEFReader();
     const controller = new AbortController();

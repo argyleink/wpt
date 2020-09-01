@@ -4,10 +4,11 @@
 // Source: Web Share API (https://w3c.github.io/web-share/)
 
 partial interface Navigator {
-  [SecureContext] Promise<void> share(optional ShareData data = {});
+  [SecureContext] Promise<undefined> share(optional ShareData data = {});
 };
 
 dictionary ShareData {
+  sequence<File> files;
   USVString title;
   USVString text;
   USVString url;

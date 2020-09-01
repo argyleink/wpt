@@ -3,7 +3,7 @@
 // (https://github.com/tidoust/reffy-reports)
 // Source: Web NFC (https://w3c.github.io/web-nfc/)
 
-[Exposed=Window]
+[SecureContext, Exposed=Window]
 interface NDEFMessage {
   constructor(NDEFMessageInit messageInit);
   readonly attribute FrozenArray<NDEFRecord> records;
@@ -13,7 +13,9 @@ dictionary NDEFMessageInit {
   required sequence<NDEFRecordInit> records;
 };
 
-[Exposed=Window]
+typedef (DOMString or BufferSource or NDEFMessageInit) NDEFRecordDataSource;
+
+[SecureContext, Exposed=Window]
 interface NDEFRecord {
   constructor(NDEFRecordInit recordInit);
 
@@ -25,7 +27,7 @@ interface NDEFRecord {
   readonly attribute USVString? encoding;
   readonly attribute USVString? lang;
 
-  sequence<NDEFRecord> toRecords();
+  sequence<NDEFRecord>? toRecords();
 };
 
 dictionary NDEFRecordInit {
@@ -36,7 +38,7 @@ dictionary NDEFRecordInit {
   USVString encoding;
   USVString lang;
 
-  any data;
+  NDEFRecordDataSource data;
 };
 
 typedef (DOMString or BufferSource or NDEFMessageInit) NDEFMessageSource;
@@ -45,7 +47,7 @@ typedef (DOMString or BufferSource or NDEFMessageInit) NDEFMessageSource;
 interface NDEFWriter {
   constructor();
 
-  Promise<void> push(NDEFMessageSource message, optional NDEFPushOptions options={});
+  Promise<undefined> write(NDEFMessageSource message, optional NDEFWriteOptions options={});
 };
 
 [SecureContext, Exposed=Window]
@@ -55,7 +57,7 @@ interface NDEFReader : EventTarget {
   attribute EventHandler onerror;
   attribute EventHandler onreading;
 
-  Promise<void> scan(optional NDEFScanOptions options={});
+  Promise<undefined> scan(optional NDEFScanOptions options={});
 };
 
 [SecureContext, Exposed=Window]
@@ -71,22 +73,15 @@ dictionary NDEFReadingEventInit : EventInit {
   required NDEFMessageInit message;
 };
 
-dictionary NDEFPushOptions {
-  NDEFPushTarget target = "any";
+dictionary NDEFWriteOptions {
   boolean ignoreRead = true;
   boolean overwrite = true;
   AbortSignal? signal;
 };
 
-enum NDEFPushTarget {
-  "tag",
-  "peer",
-  "any"
-};
-
 dictionary NDEFScanOptions {
-  USVString id = "";
+  USVString id;
   USVString recordType;
-  USVString mediaType = "";
+  USVString mediaType;
   AbortSignal? signal;
 };

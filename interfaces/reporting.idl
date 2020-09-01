@@ -19,12 +19,12 @@ interface Report {
 [Exposed=(Window,Worker)]
 interface ReportingObserver {
   constructor(ReportingObserverCallback callback, optional ReportingObserverOptions options = {});
-  void observe();
-  void disconnect();
+  undefined observe();
+  undefined disconnect();
   ReportList takeRecords();
 };
 
-callback ReportingObserverCallback = void (sequence<Report> reports, ReportingObserver observer);
+callback ReportingObserverCallback = undefined (sequence<Report> reports, ReportingObserver observer);
 
 dictionary ReportingObserverOptions {
   sequence<DOMString> types;
@@ -32,33 +32,6 @@ dictionary ReportingObserverOptions {
 };
 
 typedef sequence<Report> ReportList;
-
-[Exposed=(Window,Worker)]
-interface DeprecationReportBody : ReportBody {
-  [Default] object toJSON();
-  readonly attribute DOMString id;
-  readonly attribute Date? anticipatedRemoval;
-  readonly attribute DOMString message;
-  readonly attribute DOMString? sourceFile;
-  readonly attribute unsigned long? lineNumber;
-  readonly attribute unsigned long? columnNumber;
-};
-
-[Exposed=(Window,Worker)]
-interface InterventionReportBody : ReportBody {
-  [Default] object toJSON();
-  readonly attribute DOMString id;
-  readonly attribute DOMString message;
-  readonly attribute DOMString? sourceFile;
-  readonly attribute unsigned long? lineNumber;
-  readonly attribute unsigned long? columnNumber;
-};
-
-[Exposed=(Window,Worker)]
-interface CrashReportBody : ReportBody {
-  [Default] object toJSON();
-  readonly attribute DOMString? reason;
-};
 
 dictionary GenerateTestReportParameters {
   required DOMString message;

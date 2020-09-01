@@ -32,7 +32,6 @@ class Protocol(object):
         """:returns: Current logger"""
         return self.executor.logger
 
-    @property
     def is_alive(self):
         """Is the browser connection still active
 
@@ -147,6 +146,13 @@ class BaseProtocolPart(ProtocolPart):
                        context."""
         pass
 
+    @abstractmethod
+    def load(self, url):
+        """Load a url in the current browsing context
+
+        :param url: The url to load"""
+        pass
+
 
 class TestharnessProtocolPart(ProtocolPart):
     """Protocol part required to run testharness tests."""
@@ -183,6 +189,10 @@ class TestharnessProtocolPart(ProtocolPart):
         :returns: A protocol-specific window handle.
         """
         pass
+
+    @abstractmethod
+    def test_window_loaded(self):
+        """Wait until the newly opened test window has been loaded."""
 
 
 class PrefsProtocolPart(ProtocolPart):
@@ -305,6 +315,22 @@ class GenerateTestReportProtocolPart(ProtocolPart):
         pass
 
 
+class SetPermissionProtocolPart(ProtocolPart):
+    """Protocol part for setting permissions"""
+    __metaclass__ = ABCMeta
+
+    name = "set_permission"
+
+    @abstractmethod
+    def set_permission(self, descriptor, state, one_realm=False):
+        """Set permission state.
+
+        :param descriptor: A PermissionDescriptor object.
+        :param state: The state to set the permission to.
+        :param one_realm: Whether to set the permission for only one realm."""
+        pass
+
+
 class ActionSequenceProtocolPart(ProtocolPart):
     """Protocol part for performing trusted clicks"""
     __metaclass__ = ABCMeta
@@ -366,6 +392,7 @@ class CoverageProtocolPart(ProtocolPart):
         """Dump coverage counters"""
         pass
 
+
 class VirtualAuthenticatorProtocolPart(ProtocolPart):
     """Protocol part for creating and manipulating virtual authenticators"""
     __metaclass__ = ABCMeta
@@ -423,4 +450,16 @@ class VirtualAuthenticatorProtocolPart(ProtocolPart):
 
         :param str authenticator_id: The ID of the authenticator
         :param bool uv: the user verified flag"""
+        pass
+
+
+class PrintProtocolPart(ProtocolPart):
+    """Protocol part for rendering to a PDF."""
+    __metaclass__ = ABCMeta
+
+    name = "pdf_print"
+
+    @abstractmethod
+    def render_as_pdf(self, width, height):
+        """Output document as PDF"""
         pass
